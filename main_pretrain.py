@@ -12,15 +12,12 @@ from torch.utils.tensorboard import SummaryWriter
 import warnings
 warnings.filterwarnings('ignore')
 
-from utils import dataset as d
-from utils import optimizer as o
-from utils import functions as f
-from utils import misc as m
-
-from utils.misc import NativeScalerWithGradNormCount as NativeScaler
-
 import models
+import util.misc as misc
 from engine_pretrain import train_one_epoch
+from util.dataset import build_dataset, get_dataloader
+from util.misc import NativeScalerWithGradNormCount as NativeScaler
+from util.optimizer import get_optimizer_from_config
 
 
 def parse() -> dict:
@@ -65,8 +62,8 @@ def main(config):
         log_writer = None
 
     # ecg dataset & dataloader
-    train_dataset = d.build_dataset(config['dataset'], split='train')
-    train_data_loader = d.get_data_loader(train_dataset, mode='train', **config['dataloader'])
+    train_dataset = build_dataset(config['dataset'], split='train')
+    data_loader_train = get_dataloader(train_dataset, mode='train', **config['dataloader'])
 
     # define the model
     model_name = config['model_name']
@@ -76,12 +73,12 @@ def main(config):
         raise ValueError(f'Unsupported model name: {model_name}')
     model.to(device)
     
-    optimizer = o.get_optimizer(config['train'], model)
+    optimizer = get_optimizer_from_config(config['train'], model)
     loss_scaler = NativeScaler()
 
     for epoch in range(config['start_epoch'], config['train']['epochs']):
         train_one_epoch(model,
-            train_data_loader,
+            data_loader_train,
             optimizer,
             device,
             epoch,
