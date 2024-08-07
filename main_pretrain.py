@@ -62,11 +62,8 @@ def main(config):
         log_writer = None
 
     # ecg dataset & dataloader
-    dataset_train = build_dataset(config['dataset'], split='train')
-    data_loader_train = get_dataloader(dataset_train,
-                                       is_distributed=config['ddp']['distributed'],
-                                       mode='train',
-                                       **config['dataloader'])
+    train_dataset = build_dataset(config['dataset'], split='train')
+    train_data_loader = get_dataloader(train_dataset, mode='train', **config['dataloader'])
 
     # define the model
     model_name = config['model_name']
@@ -81,7 +78,7 @@ def main(config):
 
     for epoch in range(config['start_epoch'], config['train']['epochs']):
         train_one_epoch(model,
-            data_loader_train,
+            train_data_loader,
             optimizer,
             device,
             epoch,

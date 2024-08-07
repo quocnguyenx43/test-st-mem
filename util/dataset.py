@@ -138,31 +138,15 @@ def build_dataset(cfg: dict, split: str) -> ECGDataset:
     return dataset
 
 
-def get_dataloader(dataset: Dataset,
-                   is_distributed: bool = False,
-                   dist_eval: bool = False,
-                   mode: Literal["train", "eval"] = "train",
-                   **kwargs) -> DataLoader:
-    is_train = mode == "train"
-    if is_distributed and (is_train or dist_eval):
-        num_tasks = get_world_size()
-        global_rank = get_rank()
-        if not is_train and len(dataset) % num_tasks != 0:
-            print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
-                  'This will slightly alter validation results as extra duplicate entries are added to achieve '
-                  'equal num of samples per-process.')
-        # shuffle=True to reduce monitor bias even if it is for validation.
-        # https://github.com/facebookresearch/mae/blob/main/main_finetune.py#L189
-        sampler = torch.utils.data.distributed.DistributedSampler(dataset,
-                                                                  num_replicas=num_tasks,
-                                                                  rank=global_rank,
-                                                                  shuffle=True)
-    elif is_train:
+# get dataloader
+def get_dataloader(dataset: ECGDataset, mode: str, **kwargs) -> DataLoader:
+    len_data = len(dataset)
+    batch_size = kwargs['batch_size']
+    if batch_size > len_data:
+        raise ValueError(f'Not enough data to create 1 batch. batch_size: [{batch_size}], data_size: [{len_data}]')
+    is_train = mode == 'train'
+    if is_train:
         sampler = torch.utils.data.RandomSampler(dataset)
     else:
         sampler = torch.utils.data.SequentialSampler(dataset)
-
-    return DataLoader(dataset,
-                      sampler=sampler,
-                      drop_last=is_train,
-                      **kwargs)
+    return DataLoader(dataset, sampler=sampler, drop_last=is_train, **kwargs)
