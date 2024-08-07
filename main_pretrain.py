@@ -86,7 +86,7 @@ def main(config):
                                        mode='train',
                                        **config['dataloader'])
 
-    if misc.is_main_process() and config['output_dir']:
+    if config['output_dir']:
         output_dir = os.path.join(config['output_dir'], config['exp_name'])
         os.makedirs(output_dir, exist_ok=True)
         log_writer = SummaryWriter(log_dir=output_dir)
@@ -102,29 +102,11 @@ def main(config):
         raise ValueError(f'Unsupported model name: {model_name}')
     model.to(device)
 
-    model_without_ddp = model
-    print(f"Model = {model_without_ddp}")
-
-    eff_batch_size = config['dataloader']['batch_size'] * config['train']['accum_iter'] * misc.get_world_size()
-
-    if config['train']['lr'] is None:
-        config['train']['lr'] = config['train']['blr'] * eff_batch_size / 256
-
-    print(f"base lr: {config['train']['lr'] * 256 / eff_batch_size}")
-    print(f"actual lr: {config['train']['lr']}")
-    print(f"accumulate grad iterations: {config['train']['accum_iter']}")
-    print(f"effective batch size: {eff_batch_size}")
-
-    if config['ddp']['distributed']:
-        model = torch.nn.parallel.DistributedDataParallel(model,
-                                                          device_ids=[config['ddp']['gpu']])
-        model_without_ddp = model.module
-
-    optimizer = get_optimizer_from_config(config['train'], model_without_ddp)
+    optimizer = get_optimizer_from_config(config['train'], model)
     print(optimizer)
     loss_scaler = NativeScaler()
 
-    misc.load_model(config, model_without_ddp, optimizer, loss_scaler)
+    misc.load_model(config, model, optimizer, loss_scaler)
 
     print(f"Start training for {config['train']['epochs']} epochs")
     start_time = time.time()
@@ -143,7 +125,7 @@ def main(config):
             misc.save_model(config,
                             os.path.join(output_dir, f'checkpoint-{epoch}.pth'),
                             epoch,
-                            model_without_ddp,
+                            model,
                             optimizer,
                             loss_scaler)
 
@@ -162,7 +144,7 @@ def main(config):
     print(f'Training time {total_time_str}')
 
     # extract encoder
-    encoder = model_without_ddp.encoder
+    encoder = model.encoder
     if output_dir:
         misc.save_model(config,
                         os.path.join(output_dir, 'encoder.pth'),
