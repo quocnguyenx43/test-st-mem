@@ -50,7 +50,7 @@ def build_loss_fn(config: dict) -> Tuple[nn.Module, nn.Module]:
         raise ValueError(f"Invalid loss name: {loss_name}")
     return loss_fn, output_act
 
-def get_optimizer_from_config(config: dict, model: torch.nn.Module) -> torch.optim.Optimizer:
+def get_optimizer(config: dict, model: torch.nn.Module) -> torch.optim.Optimizer:
     opt_name = config['optimizer']
     lr = config['lr']
     weight_decay = config['weight_decay']

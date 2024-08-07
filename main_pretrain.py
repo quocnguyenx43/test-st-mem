@@ -61,10 +61,13 @@ def main(config):
     data_loader_train = d.get_data_loader(dataset_train, mode='train', **config['dataloader'])
 
     # model
-    model = st_mem_vit_base_dec256d4b(**config['model']) 
-    model.to(device)
-    optimizer = f.get_optimizer_from_config(config['train'], model)
+    model = st_mem_vit_base_dec256d4b(**config['model'])
+    optimizer = f.get_optimizer(config['train'], model)
     loss_scaler = m.NativeScalerWithGradNormCount()
+    model.to(device)
+
+    # load previous checkpoint
+    ###
 
     for epoch in range(0, config['train']['total_epochs']):
         train_one_epoch_pretrain(
