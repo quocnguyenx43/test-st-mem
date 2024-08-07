@@ -1,34 +1,22 @@
-# Original work Copyright (c) Meta Platforms, Inc. and affiliates. <https://github.com/facebookresearch/mae>
-# Modified work Copyright 2024 ST-MEM paper authors. <https://github.com/bakqui/ST-MEM>
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-# --------------------------------------------------------
-# References:
-# DeiT: https://github.com/facebookresearch/deit
-# BEiT: https://github.com/microsoft/unilm/tree/master/beit
-# MAE: https://github.com/facebookresearch/mae
-# --------------------------------------------------------
-
-import argparse
-import datetime
-import json
-import os
-import time
-
 import numpy as np
-import torch
-import torch.backends.cudnn as cudnn
+import os
 import yaml
+import time
+import argparse
+import json
+
+import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from models.st_mem import st_mem_vit_base_dec256d4b
-import utils.misc as misc
+import warnings
+warnings.filterwarnings('ignore')
+
+import utils.misc as m
 import utils.functions as f
-from engine_pretrain import train_one_epoch
-from utils.dataset import build_dataset, get_data_loader
-from utils.misc import NativeScalerWithGradNormCount as NativeScaler
-from utils.functions import get_optimizer_from_config
+import utils.dataset as d
+from utils.engine import train_one_epoch_pretrain
+
+from models.st_mem import st_mem_vit_base_dec256d4b
 
 
 def parse() -> dict:
@@ -69,17 +57,17 @@ def main(config):
         log_writer = None
 
     # ecg dataset & data loader
-    dataset_train = build_dataset(config['dataset'], split='train')
-    data_loader_train = get_data_loader(dataset_train, mode='train', **config['dataloader'])
+    dataset_train = d.build_dataset(config['dataset'], split='train')
+    data_loader_train = d.get_data_loader(dataset_train, mode='train', **config['dataloader'])
 
     # model
     model = st_mem_vit_base_dec256d4b(**config['model']) 
     model.to(device)
-    optimizer = get_optimizer_from_config(config['train'], model)
-    loss_scaler = NativeScaler()
+    optimizer = f.get_optimizer_from_config(config['train'], model)
+    loss_scaler = m.NativeScalerWithGradNormCount()
 
     for epoch in range(0, config['train']['total_epochs']):
-        train_one_epoch(
+        train_one_epoch_pretrain(
             model,
             data_loader_train,
             optimizer,

@@ -1,14 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-# --------------------------------------------------------
-# References:
-# DeiT: https://github.com/facebookresearch/deit
-# BEiT: https://github.com/microsoft/unilm/tree/master/beit
-# MAE: https://github.com/facebookresearch/mae
-# --------------------------------------------------------
 
 import math
 import sys
@@ -16,11 +5,11 @@ from typing import Iterable
 
 import torch
 
-import utils.misc as misc
+import utils.misc as m
 import utils.functions as f
 
 
-def train_one_epoch(model: torch.nn.Module,
+def train_one_epoch_pretrain(model: torch.nn.Module,
                     data_loader: Iterable,
                     optimizer: torch.optim.Optimizer,
                     device: torch.device,
@@ -29,8 +18,8 @@ def train_one_epoch(model: torch.nn.Module,
                     log_writer=None,
                     config=None):
     model.train()
-    metric_logger = misc.MetricLogger(delimiter="  ")
-    metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    metric_logger = m.MetricLogger(delimiter="  ")
+    metric_logger.add_meter('lr', m.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
     print_freq = 20
 
