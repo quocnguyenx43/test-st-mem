@@ -45,7 +45,7 @@ class ECGDataset(Dataset):
             labels = self.label_list[idx]
             return {'input_ecg': data, 'labels': labels, 'lead_indices': leads}
             
-        return {'input_ecg': data, 'lead_indices': leads}
+        return {'input_ecg': data[:, :2250], 'lead_indices': leads}
     
     
 # train, dev, test dataset building
