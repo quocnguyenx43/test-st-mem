@@ -12,7 +12,7 @@ ddp:
   gpu: 0
   dist_url: env://
   dist_backend: nccl
-  distributed: false
+  distributed: true
 
 model:
   seq_len: 2250
@@ -48,7 +48,7 @@ dataloader:
   pin_memory: True
 
 train:
-  epochs: 10
+  epochs: 50
   accum_iter: 1
   warmup_epochs: 3
   min_lr: 0
