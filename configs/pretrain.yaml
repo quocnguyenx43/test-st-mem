@@ -8,7 +8,7 @@ device: cuda
 
 ddp:
   world_size: 2
-  rank: 2
+  rank: 0
   gpu: 0
   dist_url: env://
   dist_backend: nccl
