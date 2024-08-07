@@ -16,8 +16,8 @@ from typing import Iterable
 
 import torch
 
-import utils.misc as misc
-import utils.lr_schedule as lr_schedule
+import util.misc as misc
+import util.lr_sched as lr_sched
 
 
 def train_one_epoch(model: torch.nn.Module,
@@ -44,10 +44,10 @@ def train_one_epoch(model: torch.nn.Module,
     for data_iter_step, samples in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
 
         # we use a per iteration (instead of per epoch) lr scheduler
-        # if data_iter_step % accum_iter == 0:
-        #     lr_schedule.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, config)
+        if data_iter_step % accum_iter == 0:
+            lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, config)
 
-        samples = samples['input_ecg'].type(torch.FloatTensor)
+        samples = samples.type(torch.FloatTensor)
         samples = samples.to(device, non_blocking=True)
 
         with torch.cuda.amp.autocast():
