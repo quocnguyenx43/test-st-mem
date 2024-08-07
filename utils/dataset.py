@@ -12,12 +12,11 @@ class ECGDataset(Dataset):
     def __init__(self,
                  path_list, fs_list, label_list,
                  lead_indices, target_len, target_len_sec, target_fs,
-                 preprocessor, device):
+                 preprocessor):
         
         self.path_list = path_list
         self.fs_list = fs_list
         self.label_list = label_list
-        self.device = device
 
         self.lead_indices = torch.tensor(lead_indices)
         self.padder = p.PadSequence(target_len_sec=target_len_sec)
