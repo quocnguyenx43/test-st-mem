@@ -22,7 +22,7 @@ import torch.backends.cudnn as cudnn
 import yaml
 from torch.utils.tensorboard import SummaryWriter
 
-import models
+from models.st_mem import st_mem_vit_base_dec256d4b
 import utils.misc as misc
 import utils.functions as f
 from engine_pretrain import train_one_epoch
@@ -73,19 +73,12 @@ def main(config):
     data_loader_train = get_data_loader(dataset_train, mode='train', **config['dataloader'])
 
     # model
-    model_name = config['model_name']
-    if model_name in models.__dict__:
-        model = models.__dict__[model_name](**config['model'])
-    else:
-        raise ValueError(f'Unsupported model name: {model_name}')
+    model = st_mem_vit_base_dec256d4b(**config['model']) 
     model.to(device)
-
     optimizer = get_optimizer_from_config(config['train'], model)
     loss_scaler = NativeScaler()
 
-    # misc.load_model(config, model, optimizer, loss_scaler)
-
-    for epoch in range(0, config['train']['epochs']):
+    for epoch in range(0, config['train']['total_epochs']):
         train_one_epoch(
             model,
             data_loader_train,
