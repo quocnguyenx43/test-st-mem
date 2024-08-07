@@ -12,14 +12,16 @@ model:
   norm_pix_loss: true
 
 dataset:
-  filename_col: FILE_NAME
-  fs_col: SAMPLE_RATE
-  lead: 12lead
-  fs: 250
-  index_dir: ./data/dummy
-  ecg_dir: ./data/dummy/ecgs
+  train_csv: ./data/index.csv
+  
+  # cols
+  path_col: path
+  fs_col: fs
 
-  train_csv: index.csv
+  leads: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  fs: 250
+  len: 2500
+  len_sec: 10
 
   train_transforms:
   - random_crop:
