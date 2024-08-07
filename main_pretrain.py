@@ -57,7 +57,7 @@ def main(config):
         log_writer = None
 
     # ecg dataset & data loader
-    train_dataset = d.build_dataset(config['dataset'], split='train', device=device)
+    train_dataset = d.build_dataset(config['dataset'], split='train')
     train_data_loader = d.get_data_loader(train_dataset, mode='train', **config['dataloader'])
 
     # model

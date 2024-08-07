@@ -33,12 +33,12 @@ class ECGDataset(Dataset):
 
     def __getitem__(self, idx: int):
         data, _ = f.load_data(self.path_list[idx])
-        data = data[self.lead_indices].to(self.device)
+        data = data[self.lead_indices]
 
         fs = self.fs_list[idx]
-        data = self.padder(data, fs)
-        data = self.resampler(data, fs)
-        data = self.preprocessor(data)
+        # data = self.padder(data, fs)
+        # data = self.resampler(data, fs)
+        # data = self.preprocessor(data)
 
         leads = self.lead_indices
         
@@ -50,7 +50,7 @@ class ECGDataset(Dataset):
     
     
 # train, dev, test dataset building
-def build_dataset(cfg: dict, split: str, device) -> ECGDataset:
+def build_dataset(cfg: dict, split: str) -> ECGDataset:
     path_col = cfg.get('path_col', 'path')
     fs_col = cfg.get('fs_col', 'fs')
     fs_col = cfg.get('fs_col', 'fs')
@@ -77,8 +77,9 @@ def build_dataset(cfg: dict, split: str, device) -> ECGDataset:
     return ECGDataset(
         path_list, fs_list, label_list,
         leads, length, length_sec, fs,
-        preprocessor, device
+        preprocessor
     )
+
 
 # dataloader building
 def get_data_loader(dataset: ECGDataset, mode: str, **kwargs) -> DataLoader:
