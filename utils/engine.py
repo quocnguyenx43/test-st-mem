@@ -60,11 +60,10 @@ def train_one_epoch_pretrain(model: torch.nn.Module,
         lr = optimizer.param_groups[0]['lr']
         metric_logger.update(lr=lr)
 
-        loss_value_reduce = m.all_reduce_mean(loss_value)
         if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
             # 1000 is the x-axis
             epoch_1000x = int((epoch + data_iter_step / len(data_loader)) * 1000)
-            log_writer.add_scalar('pretrain_loss', loss_value_reduce, epoch_1000x)
+            log_writer.add_scalar('pretrain_loss', loss, epoch_1000x)
             log_writer.add_scalar('lr', lr, epoch_1000x)
 
     print('Averaged stats:', metric_logger)
