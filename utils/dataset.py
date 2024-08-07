@@ -79,7 +79,7 @@ def build_dataset(cfg: dict, split: str) -> ECGDataset:
     )
 
 # dataloader building
-def build_dataloader(dataset: ECGDataset, mode: str, **kwargs) -> DataLoader:
+def get_data_loader(dataset: ECGDataset, mode: str, **kwargs) -> DataLoader:
     len_data = len(dataset)
     batch_size = kwargs['batch_size']
     if batch_size > len_data:
