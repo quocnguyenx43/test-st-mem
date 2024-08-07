@@ -44,8 +44,8 @@ def train_one_epoch(model: torch.nn.Module,
     for data_iter_step, samples in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
 
         # we use a per iteration (instead of per epoch) lr scheduler
-        if data_iter_step % accum_iter == 0:
-            f.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, config)
+        # if data_iter_step % accum_iter == 0:
+        #     f.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, config)
 
         samples = samples.type(torch.FloatTensor)
         samples = samples.to(device, non_blocking=True)
