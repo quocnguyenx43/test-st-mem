@@ -1,141 +1,82 @@
-# Copyright 2024 ST-MEM paper authors. <https://github.com/bakqui/ST-MEM>
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
-import os
-import pickle as pkl
-from typing import Iterable, Literal, Optional
-
-import numpy as np
 import pandas as pd
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-import utils.preprocessing as T
-from utils.preprocessing import get_transforms_from_config, get_rand_augment_from_config
+from utils import functions as f
+from utils import preprocessing as p
 
 
 class ECGDataset(Dataset):
-    _LEAD_SLICE = {"12lead": slice(0, 12),
-                   "limb_lead": slice(0, 6),
-                   "lead1": slice(0, 1),
-                   "lead2": slice(1, 2)}
 
     def __init__(self,
-                 root_dir: str,
-                 filenames: Iterable = None,
-                 labels: Optional[Iterable] = None,
-                 fs_list: Optional[Iterable] = None,
-                 target_lead: str = "12lead",
-                 target_fs: int = 250,
-                 transform: Optional[object] = None,
-                 label_transform: Optional[object] = None):
-        """
-        Args:
-            root_dir: Directory with all the data.
-            filenames: List of filenames. (.pkl)
-            labels: List of labels.
-            fs_list: List of sampling rates.
-            target_lead: lead to use. {'limb_lead', 'lead1', 'lead2'}
-            target_fs: Target sampling rate.
-            transform: Optional transform to be applied on a sample.
-            label_transform: Optional transform to be applied on a label.
-        """
-        self.root_dir = root_dir
-        self.filenames = filenames
-        self.labels = labels
-        self.target_lead = target_lead
+                 path_list, fs_list, label_list,
+                 lead_indices, target_len, target_len_sec, target_fs,
+                 preprocessor):
+        
+        self.path_list = path_list
         self.fs_list = fs_list
-        self.check_dataset()
-        self.resample = T.Resample(target_fs=target_fs) if fs_list is not None else None
+        self.label_list = label_list
 
-        self.transform = transform
-        self.label_transform = label_transform
+        self.lead_indices = torch.tensor(lead_indices)
+        self.padder = p.PadSequence(target_len_sec=target_len_sec)
+        self.resampler = p.Resample(target_len=target_len, target_fs=target_fs)
+        self.preprocessor = preprocessor
 
     def check_dataset(self):
-        fname_not_pkl = [f for f in self.filenames if not f.endswith('.pkl')]
-        assert len(fname_not_pkl) == 0, \
-            f"Some files do not have .pkl extension. (e.g. {fname_not_pkl[0]}...)"
-        fpaths = [os.path.join(self.root_dir, fname) for fname in self.filenames]
-        assert all([os.path.exists(fpath) for fpath in fpaths]), \
-            f"Some files do not exist. (e.g. {fpaths[0]}...)"
-        if self.labels is not None:
-            assert len(self.filenames) == len(self.labels), \
-                "The number of filenames and labels are different."
-        if self.fs_list is not None:
-            assert len(self.filenames) == len(self.fs_list), \
-                "The number of filenames and fs_list are different."
-        assert self.target_lead in self._LEAD_SLICE.keys(), \
-            f"target_lead should be one of {list(self._LEAD_SLICE.keys())}"
-
+        # fname_not_pkl = [f for f in self.filenames if not f.endswith('.pkl')]
+        pass
+    
     def __len__(self) -> int:
-        return len(self.filenames)
+        return len(self.path_list)
 
     def __getitem__(self, idx: int):
-        fname = self.filenames[idx]
-        fpath = os.path.join(self.root_dir, fname)
-        with open(fpath, 'rb') as f:
-            x = pkl.load(f)
-        assert isinstance(x, np.ndarray), f"Data should be numpy array. ({fpath})"
-        x = x[self._LEAD_SLICE[self.target_lead]]
-        if self.resample is not None:
-            x = self.resample(x, self.fs_list[idx])
-        if self.transform:
-            x = self.transform(x)
+        data, _ = f.load_data(self.path_list[idx])
+        data = data[self.lead_indices]
 
-        if self.labels is not None:
-            y = self.labels[idx]
-            if self.label_transform:
-                y = self.label_transform(y)
-            return x, y
-        else:
-            return x
+        fs = self.fs_list[idx]
+        data = self.padder(data, fs)
+        data = self.resampler(data, fs)
+        data = self.preprocessor(data)
 
-
+        leads = self.lead_indices
+        
+        if self.label_list is not None:
+            labels = self.label_list[idx]
+            return {'input_ecg': data, 'labels': labels, 'lead_indices': leads}
+            
+        return {'input_ecg': data, 'lead_indices': leads}
+    
+# train, dev, test dataset building
 def build_dataset(cfg: dict, split: str) -> ECGDataset:
-    """
-    Load train, validation, and test dataloaders.
-    """
-    fname_col = cfg.get("filename_col", "FILE_NAME")
-    fs_col = cfg.get("fs_col", None)
-    label_col = cfg.get("label_col", None)
-    target_lead = cfg.get("lead", "12lead")
-    target_fs = cfg.get("fs", 250)
+    path_col = cfg.get('path_col', 'path')
+    fs_col = cfg.get('fs_col', 'fs')
+    fs_col = cfg.get('fs_col', 'fs')
+    label_col = cfg.get('label_col', None)
 
-    index_dir = os.path.realpath(cfg["index_dir"])
-    ecg_dir = os.path.realpath(cfg["ecg_dir"])
+    index_dir = cfg.get(split + '_csv', './data/index.csv')
+    index_df = pd.read_csv(index_dir)
 
-    df_name = cfg.get(f"{split}_csv", None)
-    assert df_name is not None, f"{split}_csv is not defined in the config."
-    df = pd.read_csv(os.path.join(index_dir, df_name))
-    filenames = df[fname_col].tolist()
-    fs_list = df[fs_col].astype(int).tolist() if fs_col is not None else None
-    labels = df[label_col].astype(int).values if label_col is not None else None
+    path_list = index_df[path_col].tolist()
+    fs_list = index_df[fs_col].astype(int).tolist()
+    label_list = index_df[label_col].tolist() if label_col is not None else None
 
-    if split == "train":
-        transforms = get_transforms_from_config(cfg["train_transforms"])
-        randaug_config = cfg.get("rand_augment", {})
-        use_randaug = randaug_config.get("use", False)
-        if use_randaug:
-            randaug_kwargs = randaug_config.get("kwargs", {})
-            transforms.append(get_rand_augment_from_config(randaug_kwargs))
+    leads = cfg.get('leads', [0, 1, 2])
+    fs = cfg.get('fs', 250)
+    length = cfg.get('len', 2500)
+    length_sec = cfg.get('len', 10)
+
+    if split == 'train':
+        preprocessor = p.get_data_preprocessor(cfg["train_transforms"])
     else:
-        transforms = get_transforms_from_config(cfg["eval_transforms"])
-    transforms = T.Compose(transforms + [T.ToTensor()])
-    label_transform = T.ToTensor(dtype=cfg["label_dtype"]) if labels is not None else None
+        preprocessor = p.get_data_preprocessor(cfg["dev_transforms"])
+    preprocessor = p.Compose(preprocessor + [p.ToTensor()])
 
-    dataset = ECGDataset(ecg_dir,
-                         filenames=filenames,
-                         labels=labels,
-                         fs_list=fs_list,
-                         target_lead=target_lead,
-                         target_fs=target_fs,
-                         transform=transforms,
-                         label_transform=label_transform)
-
-    return dataset
-
+    return ECGDataset(
+        path_list, fs_list, label_list,
+        leads, length, length_sec, fs,
+        preprocessor
+    )
 
 # dataloader building
 def get_data_loader(dataset: ECGDataset, mode: str, **kwargs) -> DataLoader:

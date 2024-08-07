@@ -1,4 +1,3 @@
-
 import math
 import sys
 from typing import Iterable
@@ -7,6 +6,7 @@ import torch
 
 import utils.misc as m
 import utils.functions as f
+
 
 def train_one_epoch_pretrain(
         model: torch.nn.Module, data_loader: Iterable,
