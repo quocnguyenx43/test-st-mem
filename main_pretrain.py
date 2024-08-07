@@ -69,8 +69,6 @@ def parse() -> dict:
 
 
 def main(config):
-    misc.init_distributed_mode(config['ddp'])
-
     print(f'job dir: {os.path.dirname(os.path.realpath(__file__))}')
     print(yaml.dump(config, default_flow_style=False, sort_keys=False))
 
@@ -80,8 +78,6 @@ def main(config):
     seed = config['seed'] + misc.get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)
-
-    cudnn.benchmark = True
 
     # ECG dataset
     dataset_train = build_dataset(config['dataset'], split='train')
