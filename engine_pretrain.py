@@ -66,6 +66,8 @@ def train_one_epoch(model: torch.nn.Module,
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
 
+        torch.cuda.synchronize()
+
         metric_logger.update(loss=loss_value)
 
         lr = optimizer.param_groups[0]['lr']
@@ -79,6 +81,8 @@ def train_one_epoch(model: torch.nn.Module,
             epoch_1000x = int((epoch + data_iter_step / len(data_loader)) * 1000)
             log_writer.add_scalar('pretrain_loss', loss_value_reduce, epoch_1000x)
             log_writer.add_scalar('lr', lr, epoch_1000x)
-            
+
+    # gather the stats from all processes
+    metric_logger.synchronize_between_processes()
     print('Averaged stats:', metric_logger)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}

@@ -18,7 +18,7 @@ from collections import defaultdict, deque
 
 import torch
 import torch.distributed as dist
-from torch import inf
+from torch._six import inf
 
 
 class SmoothedValue(object):

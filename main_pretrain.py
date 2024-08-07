@@ -34,7 +34,7 @@ def parse() -> dict:
     parser = argparse.ArgumentParser('ECG self-supervised pre-training')
 
     parser.add_argument('--config_path',
-                        default='./configs/pretrain/st_mem.yaml',
+                        default='./configs/pretrain/st_mem_vit_base_12lead.yaml',
                         type=str,
                         metavar='FILE',
                         help='YAML config file path')
@@ -69,6 +69,8 @@ def parse() -> dict:
 
 
 def main(config):
+    misc.init_distributed_mode(config['ddp'])
+
     print(f'job dir: {os.path.dirname(os.path.realpath(__file__))}')
     print(yaml.dump(config, default_flow_style=False, sort_keys=False))
 
@@ -79,6 +81,8 @@ def main(config):
     torch.manual_seed(seed)
     np.random.seed(seed)
 
+    cudnn.benchmark = True
+
     # ECG dataset
     dataset_train = build_dataset(config['dataset'], split='train')
     data_loader_train = get_dataloader(dataset_train,
@@ -86,7 +90,7 @@ def main(config):
                                        mode='train',
                                        **config['dataloader'])
 
-    if config['output_dir']:
+    if misc.is_main_process() and config['output_dir']:
         output_dir = os.path.join(config['output_dir'], config['exp_name'])
         os.makedirs(output_dir, exist_ok=True)
         log_writer = SummaryWriter(log_dir=output_dir)
@@ -102,21 +106,72 @@ def main(config):
         raise ValueError(f'Unsupported model name: {model_name}')
     model.to(device)
 
-    optimizer = get_optimizer_from_config(config['train'], model)
+    model_without_ddp = model
+    print(f"Model = {model_without_ddp}")
+
+    eff_batch_size = config['dataloader']['batch_size'] * config['train']['accum_iter'] * misc.get_world_size()
+
+    if config['train']['lr'] is None:
+        config['train']['lr'] = config['train']['blr'] * eff_batch_size / 256
+
+    print(f"base lr: {config['train']['lr'] * 256 / eff_batch_size}")
+    print(f"actual lr: {config['train']['lr']}")
+    print(f"accumulate grad iterations: {config['train']['accum_iter']}")
+    print(f"effective batch size: {eff_batch_size}")
+
+    if config['ddp']['distributed']:
+        model = torch.nn.parallel.DistributedDataParallel(model,
+                                                          device_ids=[config['ddp']['gpu']])
+        model_without_ddp = model.module
+
+    optimizer = get_optimizer_from_config(config['train'], model_without_ddp)
     print(optimizer)
     loss_scaler = NativeScaler()
 
+    misc.load_model(config, model_without_ddp, optimizer, loss_scaler)
+
     print(f"Start training for {config['train']['epochs']} epochs")
+    start_time = time.time()
     for epoch in range(config['start_epoch'], config['train']['epochs']):
-        train_one_epoch(
-            model,
-            data_loader_train,
-            optimizer,
-            device,
-            epoch,
-            loss_scaler,
-            log_writer,
-            config['train'])
+        if config['ddp']['distributed']:
+            data_loader_train.sampler.set_epoch(epoch)
+        train_stats = train_one_epoch(model,
+                                      data_loader_train,
+                                      optimizer,
+                                      device,
+                                      epoch,
+                                      loss_scaler,
+                                      log_writer,
+                                      config['train'])
+        if output_dir and (epoch % 20 == 0 or epoch + 1 == config['train']['epochs']):
+            misc.save_model(config,
+                            os.path.join(output_dir, f'checkpoint-{epoch}.pth'),
+                            epoch,
+                            model_without_ddp,
+                            optimizer,
+                            loss_scaler)
+
+        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                     'epoch': epoch,
+                     }
+
+        if output_dir and misc.is_main_process():
+            if log_writer is not None:
+                log_writer.flush()
+            with open(os.path.join(output_dir, 'log.txt'), 'a', encoding="utf-8") as f:
+                f.write(json.dumps(log_stats) + '\n')
+
+    total_time = time.time() - start_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print(f'Training time {total_time_str}')
+
+    # extract encoder
+    encoder = model_without_ddp.encoder
+    if output_dir:
+        misc.save_model(config,
+                        os.path.join(output_dir, 'encoder.pth'),
+                        epoch,
+                        encoder)
 
 
 if __name__ == "__main__":
