@@ -57,8 +57,8 @@ def main(config):
         log_writer = None
 
     # ecg dataset & data loader
-    dataset_train = d.build_dataset(config['dataset'], split='train')
-    data_loader_train = d.get_data_loader(dataset_train, mode='train', **config['dataloader'])
+    train_dataset = d.build_dataset(config['dataset'], split='train')
+    train_data_loader = d.get_data_loader(train_dataset, mode='train', **config['dataloader'])
 
     # model
     model = st_mem_vit_base_dec256d4b(**config['model'])
@@ -70,15 +70,11 @@ def main(config):
     ###
 
     for epoch in range(0, config['train']['total_epochs']):
-        train_one_epoch_pretrain(
-            model,
-            data_loader_train,
-            optimizer,
-            device,
-            epoch,
-            loss_scaler,
-            log_writer,
-            config['train']
+        train_stats = train_one_epoch_pretrain(
+            model, train_data_loader,
+            epoch, config['train']['total_epochs'], device,
+            optimizer, loss_scaler,
+            log_writer, config['train']
         )
 
 
