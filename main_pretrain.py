@@ -108,16 +108,15 @@ def main(config):
 
     print(f"Start training for {config['train']['epochs']} epochs")
     for epoch in range(config['start_epoch'], config['train']['epochs']):
-        if config['ddp']['distributed']:
-            data_loader_train.sampler.set_epoch(epoch)
-        train_stats = train_one_epoch(model,
-                                      data_loader_train,
-                                      optimizer,
-                                      device,
-                                      epoch,
-                                      loss_scaler,
-                                      log_writer,
-                                      config['train'])
+        train_one_epoch(
+            model,
+            data_loader_train,
+            optimizer,
+            device,
+            epoch,
+            loss_scaler,
+            log_writer,
+            config['train'])
 
 
 if __name__ == "__main__":
