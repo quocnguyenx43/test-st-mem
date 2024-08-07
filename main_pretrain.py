@@ -106,10 +106,7 @@ def main(config):
     print(optimizer)
     loss_scaler = NativeScaler()
 
-    misc.load_model(config, model, optimizer, loss_scaler)
-
     print(f"Start training for {config['train']['epochs']} epochs")
-    start_time = time.time()
     for epoch in range(config['start_epoch'], config['train']['epochs']):
         if config['ddp']['distributed']:
             data_loader_train.sampler.set_epoch(epoch)
@@ -121,35 +118,6 @@ def main(config):
                                       loss_scaler,
                                       log_writer,
                                       config['train'])
-        if output_dir and (epoch % 20 == 0 or epoch + 1 == config['train']['epochs']):
-            misc.save_model(config,
-                            os.path.join(output_dir, f'checkpoint-{epoch}.pth'),
-                            epoch,
-                            model,
-                            optimizer,
-                            loss_scaler)
-
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     'epoch': epoch,
-                     }
-
-        if output_dir and misc.is_main_process():
-            if log_writer is not None:
-                log_writer.flush()
-            with open(os.path.join(output_dir, 'log.txt'), 'a', encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + '\n')
-
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print(f'Training time {total_time_str}')
-
-    # extract encoder
-    encoder = model.encoder
-    if output_dir:
-        misc.save_model(config,
-                        os.path.join(output_dir, 'encoder.pth'),
-                        epoch,
-                        encoder)
 
 
 if __name__ == "__main__":
