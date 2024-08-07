@@ -34,7 +34,7 @@ def parse() -> dict:
     parser = argparse.ArgumentParser('ECG self-supervised pre-training')
 
     parser.add_argument('--config_path',
-                        default='./configs/pretrain/st_mem_vit_base_12lead.yaml',
+                        default='./configs/pretrain.yaml',
                         type=str,
                         metavar='FILE',
                         help='YAML config file path')
