@@ -12,11 +12,12 @@ class ECGDataset(Dataset):
     def __init__(self,
                  path_list, fs_list, label_list,
                  lead_indices, target_len, target_len_sec, target_fs,
-                 preprocessor):
+                 preprocessor, device):
         
         self.path_list = path_list
         self.fs_list = fs_list
         self.label_list = label_list
+        self.device = device
 
         self.lead_indices = torch.tensor(lead_indices)
         self.padder = p.PadSequence(target_len_sec=target_len_sec)
@@ -32,7 +33,7 @@ class ECGDataset(Dataset):
 
     def __getitem__(self, idx: int):
         data, _ = f.load_data(self.path_list[idx])
-        data = data[self.lead_indices]
+        data = data[self.lead_indices].to(self.device)
 
         fs = self.fs_list[idx]
         data = self.padder(data, fs)
@@ -47,8 +48,9 @@ class ECGDataset(Dataset):
             
         return {'input_ecg': data, 'lead_indices': leads}
     
+    
 # train, dev, test dataset building
-def build_dataset(cfg: dict, split: str) -> ECGDataset:
+def build_dataset(cfg: dict, split: str, device) -> ECGDataset:
     path_col = cfg.get('path_col', 'path')
     fs_col = cfg.get('fs_col', 'fs')
     fs_col = cfg.get('fs_col', 'fs')
@@ -75,7 +77,7 @@ def build_dataset(cfg: dict, split: str) -> ECGDataset:
     return ECGDataset(
         path_list, fs_list, label_list,
         leads, length, length_sec, fs,
-        preprocessor
+        preprocessor, device
     )
 
 # dataloader building
