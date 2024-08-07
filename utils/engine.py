@@ -30,7 +30,7 @@ def train_one_epoch_pretrain(
         if iter_step % accum_iter == 0:
             f.adjust_learning_rate(optimizer, iter_step / len(data_loader) + epoch, end_epoch, config)
 
-        samples = samples[''].type(torch.FloatTensor)
+        samples = samples['input_ecg'].type(torch.FloatTensor)
         samples = samples.to(device, non_blocking=True)
 
         with torch.cuda.amp.autocast():
