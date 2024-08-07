@@ -12,8 +12,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-import utils.transforms as T
-from utils.transforms import get_transforms_from_config, get_rand_augment_from_config
+import utils.preprocessing as T
+from utils.preprocessing import get_transforms_from_config, get_rand_augment_from_config
 
 
 class ECGDataset(Dataset):

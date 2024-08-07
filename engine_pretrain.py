@@ -17,7 +17,7 @@ from typing import Iterable
 import torch
 
 import utils.misc as misc
-import utils.lr_sched as lr_sched
+import utils.functions as f
 
 
 def train_one_epoch(model: torch.nn.Module,
@@ -45,7 +45,7 @@ def train_one_epoch(model: torch.nn.Module,
 
         # we use a per iteration (instead of per epoch) lr scheduler
         if data_iter_step % accum_iter == 0:
-            lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, config)
+            f.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, config)
 
         samples = samples.type(torch.FloatTensor)
         samples = samples.to(device, non_blocking=True)

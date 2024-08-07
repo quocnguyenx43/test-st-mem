@@ -28,7 +28,7 @@ import utils.functions as f
 from engine_pretrain import train_one_epoch
 from utils.dataset import build_dataset, get_data_loader
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
-from utils.optimizer import get_optimizer_from_config
+from utils.functions import get_optimizer_from_config
 
 
 def parse() -> dict:
@@ -89,7 +89,6 @@ def main(config):
             log_writer,
             config['train']
         )
-
 
 
 if __name__ == "__main__":
