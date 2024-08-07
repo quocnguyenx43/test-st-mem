@@ -85,15 +85,17 @@ def main(config):
 
     # misc.load_model(config, model, optimizer, loss_scaler)
 
-    for epoch in range(config['start_epoch'], config['train']['epochs']):
-        train_one_epoch(model,
-                                      data_loader_train,
-                                      optimizer,
-                                      device,
-                                      epoch,
-                                      loss_scaler,
-                                      log_writer,
-                                      config['train'])
+    for epoch in range(0, config['train']['epochs']):
+        train_one_epoch(
+            model,
+            data_loader_train,
+            optimizer,
+            device,
+            epoch,
+            loss_scaler,
+            log_writer,
+            config['train']
+        )
 
 
 
