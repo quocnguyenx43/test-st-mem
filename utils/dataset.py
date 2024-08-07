@@ -12,9 +12,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-import util.transforms as T
-from util.transforms import get_transforms_from_config, get_rand_augment_from_config
-from util.misc import get_rank, get_world_size
+import utils.transforms as T
+from utils.transforms import get_transforms_from_config, get_rand_augment_from_config
 
 
 class ECGDataset(Dataset):
@@ -139,7 +138,7 @@ def build_dataset(cfg: dict, split: str) -> ECGDataset:
 
 
 # dataloader building
-def build_dataloader(dataset: ECGDataset, mode: str, **kwargs) -> DataLoader:
+def get_data_loader(dataset: ECGDataset, mode: str, **kwargs) -> DataLoader:
     len_data = len(dataset)
     batch_size = kwargs['batch_size']
     if batch_size > len_data:

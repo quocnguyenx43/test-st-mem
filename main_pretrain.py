@@ -23,16 +23,17 @@ import yaml
 from torch.utils.tensorboard import SummaryWriter
 
 import models
-import util.misc as misc
+import utils.misc as misc
+import utils.functions as f
 from engine_pretrain import train_one_epoch
-from util.dataset import build_dataset, get_dataloader
-from util.misc import NativeScalerWithGradNormCount as NativeScaler
-from util.optimizer import get_optimizer_from_config
+from utils.dataset import build_dataset, get_data_loader
+from utils.misc import NativeScalerWithGradNormCount as NativeScaler
+from utils.optimizer import get_optimizer_from_config
 
 
 def parse() -> dict:
     parser = argparse.ArgumentParser('ECG pre-training args')
-    parser.add_argument('--config_path', default='./configs/pretrain.yaml', type=str, help='YAML config file path for pretraining')
+    parser.add_argument('--config_path', default='./configs/pretrain.yaml', type=str)
 
     args = parser.parse_args()
     with open(args.config_path, 'r') as f:
@@ -44,24 +45,34 @@ def parse() -> dict:
 
 
 def main(config):
-    # Configs
+    # configs
     print(yaml.dump(config, default_flow_style=False, sort_keys=False))
     device = torch.device(config['device'])
     f.setup_seed(config['seed'])
 
-    # ECG dataset
-    dataset_train = build_dataset(config['dataset'], split='train')
-    data_loader_train = get_dataloader(dataset_train, mode='train', **config['dataloader'])
+    # dirs
+    if config['output_dir']:
+        output_dir = config['output_dir'] + config['exp_name'] + '/'
+        log_dir = output_dir + 'log/'
+        model_dir = output_dir + 'models/'
 
-    if misc.is_main_process() and config['output_dir']:
-        output_dir = os.path.join(config['output_dir'], config['exp_name'])
         os.makedirs(output_dir, exist_ok=True)
-        log_writer = SummaryWriter(log_dir=output_dir)
+        os.makedirs(log_dir, exist_ok=True)
+        os.makedirs(model_dir, exist_ok=True)
+
+        log_writer = SummaryWriter(log_dir=log_dir)
     else:
+        print('There not log_writer!')
         output_dir = None
+        log_dir = None
+        model_dir = None
         log_writer = None
 
-    # define the model
+    # ecg dataset & data loader
+    dataset_train = build_dataset(config['dataset'], split='train')
+    data_loader_train = get_data_loader(dataset_train, mode='train', **config['dataloader'])
+
+    # model
     model_name = config['model_name']
     if model_name in models.__dict__:
         model = models.__dict__[model_name](**config['model'])
@@ -69,36 +80,13 @@ def main(config):
         raise ValueError(f'Unsupported model name: {model_name}')
     model.to(device)
 
-    model_without_ddp = model
-    print(f"Model = {model_without_ddp}")
-
-    eff_batch_size = config['dataloader']['batch_size'] * config['train']['accum_iter'] * misc.get_world_size()
-
-    if config['train']['lr'] is None:
-        config['train']['lr'] = config['train']['blr'] * eff_batch_size / 256
-
-    print(f"base lr: {config['train']['lr'] * 256 / eff_batch_size}")
-    print(f"actual lr: {config['train']['lr']}")
-    print(f"accumulate grad iterations: {config['train']['accum_iter']}")
-    print(f"effective batch size: {eff_batch_size}")
-
-    if config['ddp']['distributed']:
-        model = torch.nn.parallel.DistributedDataParallel(model,
-                                                          device_ids=[config['ddp']['gpu']])
-        model_without_ddp = model.module
-
-    optimizer = get_optimizer_from_config(config['train'], model_without_ddp)
-    print(optimizer)
+    optimizer = get_optimizer_from_config(config['train'], model)
     loss_scaler = NativeScaler()
 
-    misc.load_model(config, model_without_ddp, optimizer, loss_scaler)
+    # misc.load_model(config, model, optimizer, loss_scaler)
 
-    print(f"Start training for {config['train']['epochs']} epochs")
-    start_time = time.time()
     for epoch in range(config['start_epoch'], config['train']['epochs']):
-        if config['ddp']['distributed']:
-            data_loader_train.sampler.set_epoch(epoch)
-        train_stats = train_one_epoch(model,
+        train_one_epoch(model,
                                       data_loader_train,
                                       optimizer,
                                       device,
@@ -106,35 +94,7 @@ def main(config):
                                       loss_scaler,
                                       log_writer,
                                       config['train'])
-        if output_dir and (epoch % 20 == 0 or epoch + 1 == config['train']['epochs']):
-            misc.save_model(config,
-                            os.path.join(output_dir, f'checkpoint-{epoch}.pth'),
-                            epoch,
-                            model_without_ddp,
-                            optimizer,
-                            loss_scaler)
 
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     'epoch': epoch,
-                     }
-
-        if output_dir and misc.is_main_process():
-            if log_writer is not None:
-                log_writer.flush()
-            with open(os.path.join(output_dir, 'log.txt'), 'a', encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + '\n')
-
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print(f'Training time {total_time_str}')
-
-    # extract encoder
-    encoder = model_without_ddp.encoder
-    if output_dir:
-        misc.save_model(config,
-                        os.path.join(output_dir, 'encoder.pth'),
-                        epoch,
-                        encoder)
 
 
 if __name__ == "__main__":
