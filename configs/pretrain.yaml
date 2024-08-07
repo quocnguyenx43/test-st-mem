@@ -4,7 +4,7 @@ exp_name: pretrain
 resume: null
 start_epoch: 0
 model_name: st_mem_vit_small_dec256d4b
-device: cpu
+device: cuda
 
 model:
   seq_len: 2250
